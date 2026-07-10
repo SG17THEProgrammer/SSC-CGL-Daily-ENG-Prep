@@ -19,13 +19,21 @@ import telegram_client as tg
 
 def send_existing_question(question_row):
     options = json.loads(question_row["options"])
+    explanation = question_row["explanation"] or ""
+
     poll_id = tg.send_quiz_poll(
         question_row["question_text"],
         options,
         question_row["correct_index"],
-        question_row["explanation"],
+        explanation,
     )
     db.record_sent_poll(poll_id, question_row["id"], config.TELEGRAM_CHAT_ID)
+
+    # Telegram caps the in-poll explanation at 200 characters. If the real
+    # explanation is longer than that, send the untruncated version as a
+    # normal follow-up message so nothing gets lost.
+    if len(explanation) > tg.POLL_EXPLANATION_LIMIT:
+        tg.send_full_explanation(explanation, topic=question_row["topic"])
 
 
 def send_new_question(topic):

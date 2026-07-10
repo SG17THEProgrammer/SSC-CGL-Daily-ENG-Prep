@@ -23,11 +23,14 @@ The JSON object must have exactly this shape:
   "question": "<the question text>",
   "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
   "correct_index": <integer 0-3, index into options of the single correct answer>,
-  "explanation": "<concise explanation of why the correct answer is correct, 1-3 sentences>"
+  "explanation": "<concise explanation of why the correct answer is correct>"
 }
 
 Rules:
 - Exactly 4 options, only one correct.
+- Keep "explanation" under 180 characters if at all possible -- one tight sentence,
+  not multiple options broken down. It will be shown as a short quiz-answer note.
+  If it truly needs more space, that's acceptable but keep it as short as it can be.
 - Match real SSC CGL Tier-I difficulty and style -- not GRE/CAT/IELTS level.
 - The question must be self-contained and unambiguous without needing audio or images.
 - Do not reuse extremely common textbook example words repeatedly; vary vocabulary across calls.
