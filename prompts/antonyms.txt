@@ -1,0 +1,3 @@
+Generate ONE SSC CGL Tier-I level "Antonyms" multiple choice question.
+The question must present a single word and ask the candidate to choose its most nearly opposite meaning.
+Use vocabulary representative of SSC CGL exams (moderate difficulty, not GRE/CAT/IELTS level).

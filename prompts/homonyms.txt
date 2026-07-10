@@ -1,0 +1,2 @@
+Generate ONE SSC CGL Tier-I level "Homonyms/Homophones" multiple choice question.
+The question should test the correct usage of one word from a pair of homophones (e.g. words that sound alike but differ in meaning/spelling) in a sentence context.

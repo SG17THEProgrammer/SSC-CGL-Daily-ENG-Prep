@@ -1,0 +1,2 @@
+Generate ONE SSC CGL Tier-I level "Pronunciation" multiple choice question.
+Since this is a text-only format, phrase it as identifying which word is correctly spelled per its standard pronunciation, OR which of the given words is commonly mispronounced/misspelled leading to incorrect usage. Be explicit and unambiguous in the question text about exactly what is being asked, since there is no audio.

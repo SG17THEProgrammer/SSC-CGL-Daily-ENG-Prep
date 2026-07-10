@@ -1,0 +1,3 @@
+Generate ONE SSC CGL Tier-I level "Spelling Correction" multiple choice question.
+The question should present a sentence with one word either correctly or incorrectly spelled among the options, and ask the candidate to identify the correctly spelled word (or the misspelled one -- be explicit in the question text about which is being asked).
+Use commonly confused/misspelled words at SSC CGL difficulty.

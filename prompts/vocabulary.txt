@@ -1,0 +1,3 @@
+Generate ONE SSC CGL Tier-I level "Vocabulary usage" multiple choice question.
+This can be a fill-in-the-blank sentence testing correct word usage, or "choose the word most similar in meaning to the underlined/given word in context".
+Keep it at SSC CGL difficulty.

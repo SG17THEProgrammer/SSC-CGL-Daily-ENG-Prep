@@ -1,0 +1,40 @@
+name: Collect Quiz Answers
+
+on:
+  schedule:
+    # Every 15 minutes, all day. GitHub may delay slightly under load -- that's fine,
+    # answers just get picked up on the next run.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  collect-answers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect answers
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python collect_answers.py
+
+      - name: Commit updated database
+        run: |
+          git config user.name "ssc-cgl-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add database.db
+          git diff --quiet --cached || git commit -m "chore: record quiz answers [skip ci]"
+          git push

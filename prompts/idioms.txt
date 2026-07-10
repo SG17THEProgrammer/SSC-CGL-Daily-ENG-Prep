@@ -1,0 +1,3 @@
+Generate ONE SSC CGL Tier-I level "Idioms and Phrases" multiple choice question.
+The question must present a common idiom (often underlined in a sentence, or standalone) and ask for its correct meaning.
+Use idioms commonly tested in SSC CGL exams, avoid obscure/regional idioms.

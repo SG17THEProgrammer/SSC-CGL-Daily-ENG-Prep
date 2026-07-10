@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+ssc-cgl-ai-coach.zip
+note
+session.session

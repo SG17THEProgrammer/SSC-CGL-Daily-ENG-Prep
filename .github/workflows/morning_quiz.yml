@@ -1,0 +1,40 @@
+name: Morning Quiz (8:00 AM IST)
+
+on:
+  schedule:
+    # 8:00 AM IST = 2:30 AM UTC
+    - cron: "30 2 * * *"
+  workflow_dispatch: {}   # allows manual trigger from the Actions tab for testing
+
+permissions:
+  contents: write
+
+jobs:
+  send-morning-quiz:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Send morning quiz
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python send_quiz.py morning
+
+      - name: Commit updated database
+        run: |
+          git config user.name "ssc-cgl-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add database.db
+          git diff --quiet --cached || git commit -m "chore: update database after morning quiz [skip ci]"
+          git push

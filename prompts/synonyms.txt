@@ -1,0 +1,3 @@
+Generate ONE SSC CGL Tier-I level "Synonyms" multiple choice question.
+The question must present a single word and ask the candidate to choose its closest synonym.
+Use vocabulary that has actually appeared in or is representative of SSC CGL exams (moderate difficulty, not GRE/CAT/IELTS level).

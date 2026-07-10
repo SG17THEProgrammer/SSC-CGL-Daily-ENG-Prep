@@ -1,0 +1,3 @@
+Generate ONE SSC CGL Tier-I level "One Word Substitution" multiple choice question.
+The question must give a phrase or definition and ask which single word means the same thing.
+Use substitutions commonly tested in SSC CGL exams.
