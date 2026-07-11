@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS questions (
     topic TEXT NOT NULL,
     question_text TEXT NOT NULL,
     question_hash TEXT NOT NULL UNIQUE,
+    focus_word TEXT,              -- the core word/idiom this question tests
     options TEXT NOT NULL,        -- JSON array of 4 strings
     correct_index INTEGER NOT NULL,  -- 0-based index into options
     explanation TEXT,
@@ -73,6 +74,17 @@ def init_db():
     )
     conn.commit()
     conn.close()
+    _migrate()
+
+
+def _migrate():
+    """Add columns to an existing database.db that predates this column."""
+    conn = get_conn()
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(questions)").fetchall()]
+    if "focus_word" not in cols:
+        conn.execute("ALTER TABLE questions ADD COLUMN focus_word TEXT")
+        conn.commit()
+    conn.close()
 
 
 def _normalize(text):
@@ -93,17 +105,18 @@ def question_exists(question_text):
     return row is not None
 
 
-def save_question(topic, question_text, options, correct_index, explanation):
+def save_question(topic, question_text, options, correct_index, explanation, focus_word=None):
     h = hash_question(question_text)
     conn = get_conn()
     cur = conn.execute(
         """INSERT INTO questions
-           (topic, question_text, question_hash, options, correct_index, explanation, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+           (topic, question_text, question_hash, focus_word, options, correct_index, explanation, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             topic,
             question_text,
             h,
+            focus_word,
             json.dumps(options),
             correct_index,
             explanation,
@@ -114,6 +127,22 @@ def save_question(topic, question_text, options, correct_index, explanation):
     qid = cur.lastrowid
     conn.close()
     return qid
+
+
+def get_recent_focus_words(limit=60):
+    """Recent focus words across ALL topics, most recent first -- used to tell
+    the generator which words are off-limits so it doesn't reuse the same
+    word across different topics/sessions."""
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT DISTINCT focus_word FROM questions
+           WHERE focus_word IS NOT NULL AND focus_word != ''
+           ORDER BY created_at DESC
+           LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return [r["focus_word"] for r in rows]
 
 
 def get_question(question_id):

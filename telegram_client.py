@@ -30,9 +30,11 @@ def _smart_truncate(text, limit):
 def send_quiz_poll(question_text, options, correct_index, explanation):
     """
     Sends a native Telegram quiz poll. Telegram itself shows correct/incorrect
-    and the (length-limited) explanation instantly when the user taps an option.
-    The FULL explanation is sent separately by the caller since Telegram caps
-    this field at 200 characters -- see send_full_explanation() below.
+    instantly when the user taps an option. Because Telegram caps the in-poll
+    explanation at 200 characters -- and we want full explanations covering
+    all 4 options, not a clipped one -- the poll's own explanation field just
+    points to the follow-up message; send_full_explanation() carries the
+    actual content and is always sent right after this.
     Returns the poll_id.
     """
     url = f"{API_BASE}/sendPoll"
@@ -53,11 +55,11 @@ def send_quiz_poll(question_text, options, correct_index, explanation):
 
 def send_full_explanation(explanation, topic=None):
     """
-    Sends the untruncated explanation as a regular message, since Telegram's
-    poll explanation field is capped at 200 characters and often chops
-    mid-sentence. Only called when the explanation actually got truncated.
+    Always sent as a normal follow-up message right after the poll, so the
+    full explanation (why the correct option is right + what the other 3
+    options mean) is never lost to Telegram's 200-char poll-field limit.
     """
-    prefix = f"*{topic.replace('_', ' ').title()}* — full explanation:\n" if topic else "Full explanation:\n"
+    prefix = f"*{topic.replace('_', ' ').title()}* — explanation:\n" if topic else "Explanation:\n"
     send_message(prefix + explanation)
 
 

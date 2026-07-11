@@ -29,20 +29,20 @@ def send_existing_question(question_row):
     )
     db.record_sent_poll(poll_id, question_row["id"], config.TELEGRAM_CHAT_ID)
 
-    # Telegram caps the in-poll explanation at 200 characters. If the real
-    # explanation is longer than that, send the untruncated version as a
-    # normal follow-up message so nothing gets lost.
-    if len(explanation) > tg.POLL_EXPLANATION_LIMIT:
-        tg.send_full_explanation(explanation, topic=question_row["topic"])
+    # Always send the full explanation as a follow-up message -- Telegram's
+    # in-poll explanation field is capped at 200 characters and we don't want
+    # to lose the "what do the other options mean" content just to fit that.
+    tg.send_full_explanation(explanation, topic=question_row["topic"])
 
 
-def send_new_question(topic):
-    qid = generator.generate_unique_question(topic)
+def send_new_question(topic, avoid_words):
+    qid, focus_word = generator.generate_unique_question(topic, avoid_words=avoid_words)
     if qid is None:
         print(f"Skipping send for topic={topic}: generation failed after retries")
         return
     question_row = db.get_question(qid)
     send_existing_question(question_row)
+    avoid_words.append(focus_word)
 
 
 def run_session(session_name):
@@ -52,11 +52,18 @@ def run_session(session_name):
     topics = config.SESSION_TOPICS[session_name]
     print(f"Running '{session_name}' session for topics: {topics}")
 
+    # Seed the avoid-list with recently used focus words (across all topics,
+    # not just this session) so today's questions don't reuse recent words,
+    # and so words don't repeat across topics within this same session either.
+    avoid_words = db.get_recent_focus_words(limit=60)
+
     # 1. Send due revision questions first (spaced repetition).
     due = db.get_due_revision_questions(topics)
     print(f"{len(due)} revision question(s) due today.")
     for row in due:
         send_existing_question(row)
+        if row["focus_word"]:
+            avoid_words.append(row["focus_word"])
 
     # 2. Send adaptive count of new questions per topic.
     for topic in topics:
@@ -64,7 +71,7 @@ def run_session(session_name):
         count = config.questions_for_accuracy(accuracy)
         print(f"Topic={topic} accuracy={accuracy} -> sending {count} new question(s)")
         for _ in range(count):
-            send_new_question(topic)
+            send_new_question(topic, avoid_words)
 
 
 if __name__ == "__main__":
