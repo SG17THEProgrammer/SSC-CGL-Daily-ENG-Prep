@@ -24,17 +24,25 @@ The JSON object must have exactly this shape:
   "question": "<the question text>",
   "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
   "correct_index": <integer 0-3, index into options of the single correct answer>,
-  "explanation": "<why the correct option is right, AND briefly what each of the other three options actually mean>"
+  "explanation": "<formatted with newlines and bullets, see format below>"
 }
 
 Rules:
 - Exactly 4 options, only one correct.
 - Match real SSC CGL Tier-I difficulty and style -- not GRE/CAT/IELTS level.
 - The question must be self-contained and unambiguous without needing audio or images.
-- "explanation" must do two things: (1) explain why the correct option is correct, and
-  (2) briefly state what each of the other three options mean, so the reader learns all
-  4 words/options from a single question, not just the right one. Keep it as tight as
-  possible while still covering all 4 options -- no length cap, but don't pad with filler.
+
+FORMAT FOR "explanation" (this is a JSON string, so use \\n for line breaks):
+- Line 1: one short sentence starting with "✅ Correct:" naming the right option and why,
+  in plain simple words. One sentence, not a paragraph.
+- Then one short bullet per OTHER option (3 bullets total), each starting with "• ",
+  giving just that word/option's meaning in 5-8 words. No long sentences.
+- No extra commentary, no restating the question, no filler like "let's see" or "in conclusion".
+- Every line should be short enough to read at a glance on a phone screen.
+
+Example shape (word choice is just illustrative, always use fresh content):
+"✅ Correct: Hardworking — diligent means showing care and effort in work.\\n• Lazy — unwilling to work or make an effort\\n• Rude — impolite or disrespectful in manner\\n• Slow — not quick; taking a long time"
+
 - Output must be valid JSON parseable by a strict JSON parser. No trailing commas.
 """
 
