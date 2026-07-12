@@ -14,7 +14,8 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 # --- Groq model ---
 # Check https://console.groq.com/docs/models for currently available free models.
 # llama-3.3-70b-versatile is a strong general-purpose free-tier model as of writing.
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # --- Database ---
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
