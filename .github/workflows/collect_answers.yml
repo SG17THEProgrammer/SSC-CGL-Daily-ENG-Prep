@@ -2,9 +2,9 @@ name: Collect Quiz Answers
 
 on:
   schedule:
-    # Every 15 minutes, all day. GitHub may delay slightly under load -- that's fine,
+    # Every 50 minutes, all day. GitHub may delay slightly under load -- that's fine,
     # answers just get picked up on the next run.
-    - cron: "*/15 * * * *"
+    - cron: "*/50 * * * *"
   workflow_dispatch: {}
 
 permissions:

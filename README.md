@@ -15,7 +15,7 @@ on your own machine.
 - **Morning quiz** (8:00 AM IST): synonyms, antonyms, vocabulary, one-word
   substitution.
 - **Evening quiz** (4:00 PM IST): idioms, spelling, homonyms, pronunciation.
-- **Answer collector** runs every ~15 minutes to fetch your poll answers from
+- **Answer collector** runs every ~50 minutes to fetch your poll answers from
   Telegram (this can't happen instantly since nothing runs continuously) and
   record them.
 - **Weekly summary** every Sunday: overall + per-topic accuracy, strongest /

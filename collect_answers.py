@@ -1,5 +1,5 @@
 """
-Entry point run every ~15 minutes by GitHub Actions:
+Entry point run every ~50 minutes by GitHub Actions:
     python collect_answers.py
 
 Telegram doesn't push poll answers to an ephemeral script -- they have to be
