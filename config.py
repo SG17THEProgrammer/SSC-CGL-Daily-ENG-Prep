@@ -56,4 +56,4 @@ REVISION_MAX_INTERVAL_DAYS = 30
 REVISION_STREAK_TO_RETIRE = 3
 
 # --- Generation ---
-MAX_GENERATION_RETRIES = 5  # retries per question if duplicate/invalid
+MAX_GENERATION_RETRIES = 12  # retries per question if duplicate/invalid/word-already-used

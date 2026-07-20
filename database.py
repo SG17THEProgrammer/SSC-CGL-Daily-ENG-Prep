@@ -12,6 +12,14 @@ from datetime import date, datetime, timedelta
 import config
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS used_words (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    word_normalized TEXT NOT NULL UNIQUE,   -- hard DB-level guarantee: never inserted twice
+    original_word TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    used_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS questions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     topic TEXT NOT NULL,
@@ -127,6 +135,56 @@ def save_question(topic, question_text, options, correct_index, explanation, foc
     qid = cur.lastrowid
     conn.close()
     return qid
+
+
+# --- Permanent word dedup registry ---
+# This is the HARD guarantee: every focus word ever sent is registered here
+# with a UNIQUE constraint, forever (not just a recent window). Even if the
+# LLM ignores the "don't reuse this word" instruction, the DB insert itself
+# fails on a repeat, so a duplicate word can never actually get saved/sent.
+
+def is_word_used(word):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT 1 FROM used_words WHERE word_normalized = ?", (_normalize(word),)
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+def record_used_word(word, topic):
+    """Returns True if newly registered, False if it was already used (duplicate)."""
+    conn = get_conn()
+    try:
+        conn.execute(
+            "INSERT INTO used_words (word_normalized, original_word, topic, used_at) VALUES (?, ?, ?, ?)",
+            (_normalize(word), word, topic, datetime.utcnow().isoformat()),
+        )
+        conn.commit()
+        success = True
+    except sqlite3.IntegrityError:
+        success = False  # someone/something already registered this exact word
+    conn.close()
+    return success
+
+
+def get_used_words_sample(limit=30):
+    """A fresh random sample (not just 'most recent') of already-used words, for
+    the prompt hint -- randomizing avoids the LLM seeing the same static list
+    every call, which can itself become a source of staleness."""
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT original_word FROM used_words ORDER BY RANDOM() LIMIT ?", (limit,)
+    ).fetchall()
+    conn.close()
+    return [r["original_word"] for r in rows]
+
+
+def used_words_count():
+    conn = get_conn()
+    row = conn.execute("SELECT COUNT(*) AS c FROM used_words").fetchone()
+    conn.close()
+    return row["c"]
 
 
 def get_recent_focus_words(limit=60):

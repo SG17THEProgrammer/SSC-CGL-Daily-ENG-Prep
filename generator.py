@@ -6,6 +6,8 @@ to avoid duplicates. Retries on duplicate/invalid output.
 
 import json
 import os
+import random
+import string
 import requests
 
 import config
@@ -53,7 +55,7 @@ def _load_topic_prompt(topic):
         return f.read().strip()
 
 
-def _call_groq(topic_instruction, avoid_words=None):
+def _call_groq(topic_instruction, avoid_words=None, letter_hint=None):
     headers = {
         "Authorization": f"Bearer {config.GROQ_API_KEY}",
         "Content-Type": "application/json",
@@ -64,8 +66,15 @@ def _call_groq(topic_instruction, avoid_words=None):
         word_list = ", ".join(avoid_words)
         user_content += (
             "\n\nIMPORTANT: Do NOT use any of the following words/phrases as the focus_word "
-            "for this question -- they have already been used recently and must not repeat:\n"
+            "-- they have already been used and must never repeat:\n"
             f"{word_list}"
+        )
+    if letter_hint:
+        user_content += (
+            f"\n\nTry to pick a focus_word that starts with the letter '{letter_hint}' "
+            "if a natural, exam-appropriate SSC CGL word starting with that letter fits this "
+            "topic. If nothing suitable starts with that letter, pick any other fresh word "
+            "instead -- just don't default to the most common/obvious word for this topic."
         )
 
     payload = {
@@ -108,21 +117,27 @@ def _validate(payload):
     return True
 
 
-def generate_unique_question(topic, avoid_words=None):
+def generate_unique_question(topic):
     """
-    Generate a question for `topic`, retrying on duplicates/invalid output/
-    reused focus words. `avoid_words` is a list of recently-used focus words
-    (across all topics) that must not be reused, so a single session doesn't
-    end up testing the same word four different ways.
+    Generate a question for `topic`. The hard guarantee against repeats comes
+    from database.record_used_word() (a UNIQUE-constrained table covering your
+    ENTIRE history, not a recent window) -- so even if the LLM ignores the
+    "don't reuse this word" instruction, a repeat can never actually be saved.
+
+    Each retry also nudges the model toward a different, randomly-chosen
+    starting letter, which in practice does a lot to stop it circling back to
+    the same "obvious" word for a topic.
 
     Returns (question_id, focus_word), or (None, None) if all retries were exhausted.
     """
     topic_instruction = _load_topic_prompt(topic)
-    avoid_words = avoid_words or []
 
     for attempt in range(config.MAX_GENERATION_RETRIES):
+        avoid_sample = db.get_used_words_sample(limit=30)
+        letter_hint = random.choice(string.ascii_uppercase)
+
         try:
-            payload = _call_groq(topic_instruction, avoid_words=avoid_words)
+            payload = _call_groq(topic_instruction, avoid_words=avoid_sample, letter_hint=letter_hint)
         except (requests.RequestException, json.JSONDecodeError, KeyError) as e:
             print(f"[{topic}] generation attempt {attempt + 1} failed: {e}")
             continue
@@ -131,14 +146,22 @@ def generate_unique_question(topic, avoid_words=None):
             print(f"[{topic}] attempt {attempt + 1}: invalid schema, retrying")
             continue
 
-        focus_word = str(payload["focus_word"]).strip().lower()
+        focus_word = str(payload["focus_word"]).strip()
 
-        if focus_word in [w.lower() for w in avoid_words]:
-            print(f"[{topic}] attempt {attempt + 1}: focus_word '{focus_word}' already used, retrying")
+        # Hard gate: check against the FULL permanent history, not a recent window.
+        if db.is_word_used(focus_word):
+            print(f"[{topic}] attempt {attempt + 1}: '{focus_word}' already used (ever), retrying")
             continue
 
         if db.question_exists(payload["question"]):
-            print(f"[{topic}] attempt {attempt + 1}: duplicate question, retrying")
+            print(f"[{topic}] attempt {attempt + 1}: duplicate question text, retrying")
+            continue
+
+        # Atomically claim the word FIRST. If this fails, something else beat us
+        # to it (shouldn't happen in this single-threaded flow, but it's the
+        # actual source of truth -- belt and suspenders).
+        if not db.record_used_word(focus_word, topic):
+            print(f"[{topic}] attempt {attempt + 1}: '{focus_word}' lost the race, retrying")
             continue
 
         qid = db.save_question(
@@ -147,9 +170,9 @@ def generate_unique_question(topic, avoid_words=None):
             options=payload["options"],
             correct_index=payload["correct_index"],
             explanation=payload["explanation"],
-            focus_word=payload["focus_word"].strip(),
+            focus_word=focus_word,
         )
-        return qid, payload["focus_word"].strip()
+        return qid, focus_word
 
-    print(f"[{topic}] exhausted {config.MAX_GENERATION_RETRIES} retries without success")
+    print(f"[{topic}] exhausted {config.MAX_GENERATION_RETRIES} retries without a fresh word")
     return None, None

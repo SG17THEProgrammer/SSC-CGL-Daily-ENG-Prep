@@ -99,3 +99,14 @@ are configured.
   time. If it ever becomes annoying, the fix is periodically running
   `git gc`/history squashing, or switching to a `.sql` text dump instead of
   a binary commit -- not something you need to think about on day one.
+
+## Word repetition -- how it's actually prevented
+
+Every focus word ever sent is permanently registered in a `used_words` table
+with a **database-level UNIQUE constraint**. This isn't a "please don't
+repeat" instruction the LLM can ignore -- if it tries to reuse a word
+(regardless of casing), the database insert itself fails, and the system
+automatically retries with a different, randomly-nudged starting letter
+until it finds something fresh. This check is against your **entire
+history**, not a recent window, so words don't quietly become "fair game"
+again after a few days.
