@@ -1,6 +1,6 @@
-# SSC CGL English AI Coach
+# Competitive Exam English AI Coach
 
-A Telegram bot that sends you SSC CGL Tier-I English MCQs twice a day, tracks
+A Telegram bot that sends competitive exam level English MCQs twice a day, tracks
 your accuracy per topic, adapts how many questions each topic gets based on
 your weak spots, and re-tests wrong answers on a spaced-repetition schedule.
 Runs entirely on GitHub Actions -- ₹0/month, nothing to host or keep running
