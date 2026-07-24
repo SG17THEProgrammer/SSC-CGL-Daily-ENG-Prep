@@ -1,11 +1,14 @@
 """
-Entry point run twice daily by GitHub Actions:
+Entry point run three times daily by GitHub Actions:
     python send_quiz.py morning
+    python send_quiz.py afternoon
     python send_quiz.py evening
 
-For each topic in the session:
-  1. Send any revision-queue questions due today for that topic (spaced repetition).
-  2. Generate and send N new questions, where N is adaptive based on recent accuracy.
+Sends a FIXED number of questions per topic (config.QUESTIONS_PER_TOPIC) --
+this is what keeps the count consistent every single run instead of
+swinging between 2 and 4. No answer-collection, no accuracy-adaptive
+counts, no revision queue: this is pure practice-volume mode for SBI PO,
+running as fast as possible without waiting on Telegram poll answers.
 """
 
 import json
@@ -17,59 +20,50 @@ import generator
 import telegram_client as tg
 
 
-def send_existing_question(question_row):
+def send_new_question(topic):
+    qid, focus_word = generator.generate_unique_question(topic)
+    if qid is None:
+        print(f"Skipping send for topic={topic}: generation failed after retries")
+        return False
+
+    question_row = db.get_question(qid)
     options = json.loads(question_row["options"])
     explanation = question_row["explanation"] or ""
 
-    poll_id = tg.send_quiz_poll(
+    tg.send_quiz_poll(
         question_row["question_text"],
         options,
         question_row["correct_index"],
         explanation,
     )
-    db.record_sent_poll(poll_id, question_row["id"], config.TELEGRAM_CHAT_ID)
-
-    # Always send the full explanation as a follow-up message -- Telegram's
-    # in-poll explanation field is capped at 200 characters and we don't want
-    # to lose the "what do the other options mean" content just to fit that.
-    tg.send_full_explanation(explanation, topic=question_row["topic"])
-
-
-def send_new_question(topic):
-    qid, focus_word = generator.generate_unique_question(topic)
-    if qid is None:
-        print(f"Skipping send for topic={topic}: generation failed after retries")
-        return
-    question_row = db.get_question(qid)
-    send_existing_question(question_row)
+    # Only sends a second message if the explanation didn't fit inline --
+    # normal case is a single crisp sentence that fits in the poll itself.
+    tg.send_full_explanation_if_needed(explanation, topic=topic)
+    return True
 
 
 def run_session(session_name):
     if session_name not in config.SESSION_TOPICS:
-        raise SystemExit(f"Unknown session '{session_name}'. Use 'morning' or 'evening'.")
+        raise SystemExit(f"Unknown session '{session_name}'. Use one of: {list(config.SESSION_TOPICS)}")
 
     topics = config.SESSION_TOPICS[session_name]
     print(f"Running '{session_name}' session for topics: {topics}")
+    print(f"Fixed questions per topic: {config.QUESTIONS_PER_TOPIC} "
+          f"-> {config.QUESTIONS_PER_TOPIC * len(topics)} total this session")
     print(f"Total unique words used so far (all-time): {db.used_words_count()}")
 
-    # 1. Send due revision questions first (spaced repetition).
-    due = db.get_due_revision_questions(topics)
-    print(f"{len(due)} revision question(s) due today.")
-    for row in due:
-        send_existing_question(row)
-
-    # 2. Send adaptive count of new questions per topic.
+    sent = 0
     for topic in topics:
-        accuracy = db.get_topic_accuracy(topic)
-        count = config.questions_for_accuracy(accuracy)
-        print(f"Topic={topic} accuracy={accuracy} -> sending {count} new question(s)")
-        for _ in range(count):
-            send_new_question(topic)
+        for _ in range(config.QUESTIONS_PER_TOPIC):
+            if send_new_question(topic):
+                sent += 1
+
+    print(f"Session complete: {sent}/{config.QUESTIONS_PER_TOPIC * len(topics)} questions sent successfully.")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: python send_quiz.py <morning|evening>")
+        raise SystemExit(f"Usage: python send_quiz.py <{'|'.join(config.SESSION_TOPICS)}>")
 
     if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID and config.GROQ_API_KEY):
         raise SystemExit(

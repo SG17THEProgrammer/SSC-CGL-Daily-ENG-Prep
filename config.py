@@ -21,39 +21,26 @@ GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
 
 # --- Topics ---
-MORNING_TOPICS = ["synonyms", "antonyms", "vocabulary", "one_word_substitution"]
-EVENING_TOPICS = ["idioms", "spelling", "homonyms", "pronunciation"]
-ALL_TOPICS = MORNING_TOPICS + EVENING_TOPICS
+# SBI PO 2026-focused English topics, split across 3 daily sessions so the
+# frequency is higher without any single session running too long.
+MORNING_TOPICS = ["synonyms", "antonyms", "one_word_substitution", "error_spotting"]
+AFTERNOON_TOPICS = ["cloze_test", "fill_in_the_blanks", "phrase_replacement", "sentence_improvement"]
+EVENING_TOPICS = ["idioms", "spelling", "para_jumbles" , "error_spotting"]
+ALL_TOPICS = MORNING_TOPICS + AFTERNOON_TOPICS + EVENING_TOPICS
 
 SESSION_TOPICS = {
     "morning": MORNING_TOPICS,
+    "afternoon": AFTERNOON_TOPICS,
     "evening": EVENING_TOPICS,
 }
 
-# --- Adaptive difficulty tiers ---
-# Based on rolling accuracy per topic (last N responses), decide how many
-# NEW questions of that topic to send this session (in addition to any
-# revision-queue questions due today for that topic).
-ACCURACY_WINDOW = 20  # look at last N answered questions per topic
-
-def questions_for_accuracy(accuracy_pct):
-    """Return how many new questions a topic gets this session based on accuracy."""
-    if accuracy_pct is None:
-        return 1  # no data yet -> baseline
-    if accuracy_pct < 60:
-        return 3
-    if accuracy_pct < 75:
-        return 2
-    return 1
-
-# --- Spaced repetition ---
-# On wrong answer: reset interval to 1 day.
-# On correct answer while in revision queue: multiply interval (capped),
-# and drop from queue after 3 consecutive correct reviews.
-REVISION_INITIAL_INTERVAL_DAYS = 1
-REVISION_INTERVAL_MULTIPLIER = 2
-REVISION_MAX_INTERVAL_DAYS = 30
-REVISION_STREAK_TO_RETIRE = 3
+# --- Question count ---
+# FIXED per topic per session -- this is what actually stops the "sometimes 2,
+# sometimes 4" unevenness. Total per session = QUESTIONS_PER_TOPIC * len(topics)
+# = 3 * 4 = 12 questions -> 36 questions/day across 3 sessions.
+QUESTIONS_PER_TOPIC = 3
 
 # --- Generation ---
 MAX_GENERATION_RETRIES = 12  # retries per question if duplicate/invalid/word-already-used
+GROQ_MAX_TOKENS = 1200  # raised so the model never has to cut a question/explanation short
+GROQ_TIMEOUT_SECONDS = 45

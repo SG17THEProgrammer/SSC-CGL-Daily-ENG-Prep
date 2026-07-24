@@ -29,12 +29,10 @@ def _smart_truncate(text, limit):
 
 def send_quiz_poll(question_text, options, correct_index, explanation):
     """
-    Sends a native Telegram quiz poll. Telegram itself shows correct/incorrect
-    instantly when the user taps an option. Because Telegram caps the in-poll
-    explanation at 200 characters -- and we want full explanations covering
-    all 4 options, not a clipped one -- the poll's own explanation field just
-    points to the follow-up message; send_full_explanation() carries the
-    actual content and is always sent right after this.
+    Sends a native Telegram quiz poll. Telegram shows correct/incorrect AND
+    the explanation (up to 200 chars) instantly inline when the user taps an
+    option -- no separate message needed for the common case, since the
+    generator now produces a single crisp sentence that almost always fits.
     Returns the poll_id.
     """
     url = f"{API_BASE}/sendPoll"
@@ -53,13 +51,16 @@ def send_quiz_poll(question_text, options, correct_index, explanation):
     return result["poll"]["id"]
 
 
-def send_full_explanation(explanation, topic=None):
+def send_full_explanation_if_needed(explanation, topic=None):
     """
-    Always sent as a normal follow-up message right after the poll, so the
-    full explanation (why the correct option is right + what the other 3
-    options mean) is never lost to Telegram's 200-char poll-field limit.
+    Only sends a separate follow-up message if the explanation genuinely did
+    NOT fit inside the poll's 200-char inline field. This is what stops the
+    chat from getting crowded with a second message after every single
+    question -- most explanations are one short sentence and fit inline.
     """
-    prefix = f"*{topic.replace('_', ' ').title()}* — explanation:\n" if topic else "Explanation:\n"
+    if not explanation or len(explanation) <= POLL_EXPLANATION_LIMIT:
+        return
+    prefix = f"*{topic.replace('_', ' ').title()}* — full explanation:\n" if topic else "Full explanation:\n"
     send_message(prefix + explanation)
 
 
@@ -73,15 +74,3 @@ def send_message(text):
     resp = requests.post(url, json=payload, timeout=15)
     resp.raise_for_status()
     return resp.json()
-
-
-def get_updates(offset):
-    url = f"{API_BASE}/getUpdates"
-    payload = {
-        "offset": offset,
-        "timeout": 0,
-        "allowed_updates": ["poll_answer"],
-    }
-    resp = requests.post(url, json=payload, timeout=15)
-    resp.raise_for_status()
-    return resp.json()["result"]

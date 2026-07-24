@@ -17,35 +17,43 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 PROMPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompts")
 
-SYSTEM_INSTRUCTIONS = """You are an expert SSC CGL Tier-I English exam question setter.
+SYSTEM_INSTRUCTIONS = """You are an expert SBI PO / SSC CGL English exam question setter.
 Respond with ONLY a single valid JSON object, no markdown fences, no commentary, no preamble.
 
 The JSON object must have exactly this shape:
 {
-  "focus_word": "<the single core word, idiom, or phrase this question is built around>",
-  "question": "<the question text>",
+  "focus_word": "<the single core word/idiom/phrase this question centers on>",
+  "question": "<the FULL question text -- see completeness rule below>",
   "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
   "correct_index": <integer 0-3, index into options of the single correct answer>,
-  "explanation": "<formatted with newlines and bullets, see format below>"
+  "explanation": "<ONE crisp sentence, see format below>"
 }
 
-Rules:
+CRITICAL COMPLETENESS RULE (this fixes a real bug where questions came out
+missing the actual word/blank):
+- If this question is about a specific word (synonym/antonym/spelling/idiom/
+  one-word-substitution/error-spotting target), the question text MUST
+  explicitly contain that exact word or phrase written out in full. NEVER
+  write something like "choose the word with the same meaning" without
+  actually including the word itself in the question text.
+- If this question involves a blank, the question text MUST contain the
+  blank marker "____" (four underscores) at the correct position. Never
+  omit the blank marker.
+- Before finalizing, re-read your own "question" field and confirm a reader
+  seeing ONLY that field (no other context) has everything needed to answer
+  it. If anything referenced is missing from the text, fix it.
+
+Other rules:
 - Exactly 4 options, only one correct.
-- Match real SSC CGL Tier-I difficulty and style -- not GRE/CAT/IELTS level.
-- The question must be self-contained and unambiguous without needing audio or images.
-
-FORMAT FOR "explanation" (this is a JSON string, so use \\n for line breaks):
-- Line 1: one short sentence starting with "✅ Correct:" naming the right option and why,
-  in plain simple words. One sentence, not a paragraph.
-- Then one short bullet per OTHER option (3 bullets total), each starting with "• ",
-  giving just that word/option's meaning in 5-8 words. No long sentences.
-- No extra commentary, no restating the question, no filler like "let's see" or "in conclusion".
-- Every line should be short enough to read at a glance on a phone screen.
-
-Example shape (word choice is just illustrative, always use fresh content):
-"✅ Correct: Hardworking — diligent means showing care and effort in work.\\n• Lazy — unwilling to work or make an effort\\n• Rude — impolite or disrespectful in manner\\n• Slow — not quick; taking a long time"
-
+- Match real SBI PO / SSC CGL difficulty -- not GRE/CAT/IELTS level.
+- The question must be self-contained and answerable from its own text alone.
+- "explanation": exactly ONE short sentence (under 140 characters), plain
+  language, stating why the correct option is right. No bullet points, no
+  breakdown of the other options, no line breaks. Telegram shows this inline
+  right under the poll, so it must be short enough to read in one glance.
 - Output must be valid JSON parseable by a strict JSON parser. No trailing commas.
+- Never truncate or cut off the "question", "options", or "explanation" fields
+  partway through a word or sentence -- always finish every field completely.
 """
 
 
@@ -72,7 +80,7 @@ def _call_groq(topic_instruction, avoid_words=None, letter_hint=None):
     if letter_hint:
         user_content += (
             f"\n\nTry to pick a focus_word that starts with the letter '{letter_hint}' "
-            "if a natural, exam-appropriate SSC CGL word starting with that letter fits this "
+            "if a natural, exam-appropriate word starting with that letter fits this "
             "topic. If nothing suitable starts with that letter, pick any other fresh word "
             "instead -- just don't default to the most common/obvious word for this topic."
         )
@@ -84,14 +92,22 @@ def _call_groq(topic_instruction, avoid_words=None, letter_hint=None):
             {"role": "user", "content": user_content},
         ],
         "temperature": 0.9,
-        "max_tokens": 600,
+        "max_tokens": config.GROQ_MAX_TOKENS,
     }
-    resp = requests.post(GROQ_URL, headers=headers, json=payload, timeout=30)
+    resp = requests.post(GROQ_URL, headers=headers, json=payload, timeout=config.GROQ_TIMEOUT_SECONDS)
     resp.raise_for_status()
     data = resp.json()
-    content = data["choices"][0]["message"]["content"].strip()
 
-    # Strip accidental markdown fences if the model adds them anyway.
+    choice = data["choices"][0]
+    finish_reason = choice.get("finish_reason")
+    content = choice["message"]["content"].strip()
+
+    if finish_reason == "length":
+        # The model ran out of tokens mid-generation -- the JSON is guaranteed
+        # incomplete. Raise explicitly instead of letting json.loads produce a
+        # confusing generic parse error, so the retry loop logs the real cause.
+        raise TruncatedGenerationError(f"Groq cut the response short (finish_reason=length)")
+
     if content.startswith("```"):
         content = content.strip("`")
         if content.lower().startswith("json"):
@@ -100,21 +116,50 @@ def _call_groq(topic_instruction, avoid_words=None, letter_hint=None):
     return json.loads(content)
 
 
-def _validate(payload):
+class TruncatedGenerationError(Exception):
+    pass
+
+
+BLANK_STYLE_TOPICS = {
+    "cloze_test", "fill_in_the_blanks", "vocabulary", "sentence_improvement",
+    "phrase_replacement", "reading_comprehension",
+}
+WORD_MUST_APPEAR_TOPICS = {
+    "synonyms", "antonyms", "spelling", "idioms", "one_word_substitution",
+    "homonyms", "pronunciation", "error_spotting",
+}
+
+
+def _validate(payload, topic):
     if not isinstance(payload, dict):
-        return False
+        return False, "not a dict"
     required = {"focus_word", "question", "options", "correct_index", "explanation"}
     if not required.issubset(payload.keys()):
-        return False
+        return False, "missing required keys"
     if not isinstance(payload["options"], list) or len(payload["options"]) != 4:
-        return False
+        return False, "options must be a list of 4"
+    if any(not str(o).strip() for o in payload["options"]):
+        return False, "an option is empty"
     if not isinstance(payload["correct_index"], int) or not (0 <= payload["correct_index"] <= 3):
-        return False
-    if not payload["question"].strip():
-        return False
-    if not str(payload["focus_word"]).strip():
-        return False
-    return True
+        return False, "correct_index out of range"
+    question = str(payload["question"]).strip()
+    if not question:
+        return False, "empty question"
+    focus_word = str(payload["focus_word"]).strip()
+    if not focus_word:
+        return False, "empty focus_word"
+    if not str(payload["explanation"]).strip():
+        return False, "empty explanation"
+
+    # Completeness check -- this is what catches the "word/blank omitted" bug.
+    if topic in WORD_MUST_APPEAR_TOPICS:
+        if focus_word.lower() not in question.lower():
+            return False, f"focus_word '{focus_word}' does not appear in question text"
+    if topic in BLANK_STYLE_TOPICS:
+        if "___" not in question:
+            return False, "blank marker '____' missing from question text"
+
+    return True, None
 
 
 def generate_unique_question(topic):
@@ -138,12 +183,16 @@ def generate_unique_question(topic):
 
         try:
             payload = _call_groq(topic_instruction, avoid_words=avoid_sample, letter_hint=letter_hint)
+        except TruncatedGenerationError as e:
+            print(f"[{topic}] attempt {attempt + 1}: {e} -- retrying")
+            continue
         except (requests.RequestException, json.JSONDecodeError, KeyError) as e:
             print(f"[{topic}] generation attempt {attempt + 1} failed: {e}")
             continue
 
-        if not _validate(payload):
-            print(f"[{topic}] attempt {attempt + 1}: invalid schema, retrying")
+        ok, reason = _validate(payload, topic)
+        if not ok:
+            print(f"[{topic}] attempt {attempt + 1}: invalid ({reason}), retrying")
             continue
 
         focus_word = str(payload["focus_word"]).strip()

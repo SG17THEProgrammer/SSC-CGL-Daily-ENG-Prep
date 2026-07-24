@@ -352,6 +352,24 @@ def get_due_revision_questions(topics):
     return rows
 
 
+def get_weekly_volume_stats(days=7):
+    """
+    Since answer-collection is removed, weekly reporting is based on
+    QUESTIONS SENT (from the questions table's created_at) rather than
+    answers recorded -- this still gives useful coverage/volume visibility.
+    """
+    conn = get_conn()
+    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    rows = conn.execute(
+        "SELECT topic, COUNT(*) as cnt FROM questions WHERE created_at >= ? GROUP BY topic",
+        (since,),
+    ).fetchall()
+    conn.close()
+    stats = {r["topic"]: r["cnt"] for r in rows}
+    total = sum(stats.values())
+    return stats, total
+
+
 def get_weekly_stats(days=7):
     conn = get_conn()
     since = (datetime.utcnow() - timedelta(days=days)).isoformat()
