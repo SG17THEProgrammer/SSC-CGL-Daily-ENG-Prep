@@ -1,0 +1,2 @@
+Generate ONE SBI PO level "Phrase Replacement" multiple choice question.
+Give one sentence with a phrase or segment underlined (mark it clearly, e.g. using quotes around the underlined part within the sentence). Ask which of the 4 options should replace the underlined part to make the sentence grammatically correct. One option can be "No improvement needed" if that fits naturally as a distractor.

@@ -389,3 +389,4 @@ def get_weekly_stats(days=7):
     total_q = sum(v["total"] for v in stats.values())
     total_c = sum(v["correct"] for v in stats.values())
     return stats, total_q, total_c
+

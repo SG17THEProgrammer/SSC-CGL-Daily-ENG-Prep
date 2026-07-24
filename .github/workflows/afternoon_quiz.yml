@@ -1,17 +1,16 @@
-name: Collect Quiz Answers
+name: Afternoon Quiz (1:00 PM IST)
 
 on:
   schedule:
-    # Every 50 minutes, all day. GitHub may delay slightly under load -- that's fine,
-    # answers just get picked up on the next run.
-    - cron: "*/50 * * * *"
+    # 1:00 PM IST = 7:30 AM UTC
+    - cron: "30 7 * * *"
   workflow_dispatch: {}
 
 permissions:
   contents: write
 
 jobs:
-  collect-answers:
+  send-afternoon-quiz:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -25,16 +24,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Collect answers
+      - name: Send afternoon quiz
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python collect_answers.py
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python send_quiz.py afternoon
 
       - name: Commit updated database
         run: |
           git config user.name "ssc-cgl-bot"
           git config user.email "actions@users.noreply.github.com"
           git add database.db
-          git diff --quiet --cached || git commit -m "chore: record quiz answers [skip ci]"
+          git diff --quiet --cached || git commit -m "chore: update database after afternoon quiz [skip ci]"
           git push

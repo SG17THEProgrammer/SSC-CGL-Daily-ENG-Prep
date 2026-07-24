@@ -1,0 +1,2 @@
+Generate ONE SBI PO level "Error Spotting / Sentence Correction" multiple choice question.
+Give a sentence split into 4 labelled parts (or present the full sentence with one part underlined per option). Exactly one part contains a grammatical error, or all parts are correct ("No error"). Ask the candidate to identify which part has the error.

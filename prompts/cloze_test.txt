@@ -1,0 +1,2 @@
+Generate ONE SBI PO level "Cloze Test" multiple choice question.
+Write a short 2-3 sentence passage with exactly ONE blank marked as ____ (a single blank only). Ask which option best fits the blank grammatically and contextually. All 4 options should be plausible at a glance but only one truly fits.

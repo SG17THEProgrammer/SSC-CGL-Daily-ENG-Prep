@@ -1,0 +1,2 @@
+Generate ONE SBI PO level "Para Jumbles / Sentence Rearrangement" multiple choice question.
+Give exactly 4 short sentences labelled A, B, C, D that form a coherent paragraph when correctly ordered, but list them in a shuffled/jumbled order in the question text. The 4 options should each be a possible ordering (e.g. "BDAC"), only one of which is the correct coherent sequence.

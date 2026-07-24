@@ -1,0 +1,2 @@
+Generate ONE SBI PO level "Sentence Improvement" multiple choice question.
+Give one sentence that may contain a grammatical or structural issue, with a segment underlined (mark clearly within the sentence). Ask which option best improves that segment. Include the original phrasing as one of the options (for when no improvement is needed).

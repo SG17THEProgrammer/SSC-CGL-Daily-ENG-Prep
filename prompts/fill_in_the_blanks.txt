@@ -1,0 +1,2 @@
+Generate ONE SBI PO level "Fill in the Blanks" multiple choice question (can be single or double blank).
+Write ONE sentence with either one blank (____) or two blanks (____ and ____). Provide 4 options; if there are two blanks, each option must give a pair of words separated by a comma. Only one option correctly fits both grammar and meaning.

@@ -2,8 +2,12 @@
 Entry point run once a week (Sunday) by GitHub Actions:
     python weekly_summary.py
 
-Computes accuracy over the last 7 days, overall and per topic, and sends
-a formatted summary to Telegram. No dashboard/hosting needed for this.
+Reports practice VOLUME and topic coverage over the last 7 days. Accuracy
+tracking was removed along with the answer-collector (per your request to
+drop it for speed), so this reports what's still knowable: how many
+questions you were sent, per topic, and your total vocabulary coverage
+so far -- useful for confirming the bot is actually running consistently
+in the run-up to Aug 1.
 """
 
 import config
@@ -12,39 +16,26 @@ import telegram_client as tg
 
 
 def build_summary_text():
-    stats, total_q, total_c = db.get_weekly_stats(days=7)
+    stats, total = db.get_weekly_volume_stats(days=7)
+    total_words_ever = db.used_words_count()
 
-    if total_q == 0:
-        return "*Weekly Summary*\n\nNo questions were answered this week."
-
-    overall_pct = round(100.0 * total_c / total_q, 1)
+    if total == 0:
+        return (
+            "*SBI PO English -- Weekly Summary*\n\n"
+            "No questions were sent this week. Check the GitHub Actions tab "
+            "for failed workflow runs."
+        )
 
     lines = [
-        "*SSC CGL English -- Weekly Summary*",
+        "*SBI PO English -- Weekly Summary*",
         "",
-        f"Total questions attempted: {total_q}",
-        f"Overall accuracy: {overall_pct}%",
+        f"Questions sent this week: {total}",
+        f"Total unique words/concepts covered so far: {total_words_ever}",
         "",
-        "*By topic:*",
+        "*By topic (last 7 days):*",
     ]
-
-    topic_rows = []
-    for topic, v in stats.items():
-        pct = round(100.0 * v["correct"] / v["total"], 1) if v["total"] else 0.0
-        topic_rows.append((topic, pct, v["total"]))
-        lines.append(f"- {topic.replace('_', ' ').title()}: {pct}% ({v['correct']}/{v['total']})")
-
-    if topic_rows:
-        strongest = max(topic_rows, key=lambda r: r[1])
-        weakest = min(topic_rows, key=lambda r: r[1])
-        lines += [
-            "",
-            f"Strongest topic: {strongest[0].replace('_', ' ').title()} ({strongest[1]}%)",
-            f"Weakest topic: {weakest[0].replace('_', ' ').title()} ({weakest[1]}%)",
-            "",
-            f"Recommended focus: extra practice on "
-            f"{weakest[0].replace('_', ' ')} next week.",
-        ]
+    for topic, count in sorted(stats.items(), key=lambda x: -x[1]):
+        lines.append(f"- {topic.replace('_', ' ').title()}: {count}")
 
     return "\n".join(lines)
 
